@@ -713,6 +713,35 @@ static const struct command_def cmd_setm_def = {
     "BASE will be modified."
 };
 
+static void cmd_seti(struct command *cmd) {
+    const char *path = arg_value(cmd, "path");
+    const char *val = arg_value(cmd, "value");
+    int r;
+
+    r = aug_seti(cmd->aug, path, val);
+    if (r < 0)
+        ERR_REPORT(cmd, AUG_ECMDRUN, "Setting %s failed", path);
+}
+
+static const struct command_opt_def cmd_seti_opts[] = {
+    { .type = CMD_PATH, .name = "path", .optional = false,
+      .help = "set the value of this node" },
+    { .type = CMD_STR, .name = "value", .optional = true,
+      .help = "the value for the nodes" },
+    CMD_OPT_DEF_LAST
+};
+
+static const struct command_def cmd_seti_def = {
+    .name = "seti",
+    .opts = cmd_seti_opts,
+    .handler = cmd_seti,
+    .synopsis = "set the value a node, creating a new node if no matching node is found",
+    .help = "Find a matching node, or if no matching node is found, append a new node"
+    " "
+    " "
+    " "
+};
+
 static void cmd_clearm(struct command *cmd) {
     const char *base = arg_value(cmd, "base");
     const char *sub  = arg_value(cmd, "sub");
@@ -1528,6 +1557,7 @@ static const struct command_grp_def cmd_grp_write_def = {
         &cmd_rm_def,
         &cmd_set_def,
         &cmd_setm_def,
+        &cmd_seti_def,
         &cmd_touch_def,
         &cmd_def_last
     }

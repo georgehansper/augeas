@@ -185,6 +185,17 @@ int aug_set(augeas *aug, const char *path, const char *value);
  */
 int aug_setm(augeas *aug, const char *base, const char *sub, const char *value);
 
+/* Function: aug_seti
+ *
+ * Similar to set, except that intermedite nodes are created using the next sequential number
+ * if the path-component is an expression such as *[child='value'] that has failed to match anything
+ *
+ * Returns:
+ * 0 on success, -1 on error. It is an error if more than one node
+ * matches PATH.
+ */
+int aug_seti(augeas *aug, const char *path, const char *value);
+
 /* Function: aug_span
  *
  * Get the span according to input file of the node associated with PATH. If

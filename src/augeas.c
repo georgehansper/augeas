@@ -1045,6 +1045,27 @@ int aug_setm(struct augeas *aug, const char *base,
     goto done;
 }
 
+int aug_seti(struct augeas *aug, const char *path, const char *value) {
+    struct pathx *p = NULL;
+    int result = -1;
+
+    api_entry(aug);
+
+    /* Get-out clause, in case context is broken */
+    struct tree *root_ctx = NULL;
+    if (STRNEQ(path, AUGEAS_CONTEXT))
+        root_ctx = tree_root_ctx(aug);
+
+    p = pathx_aug_parse(aug, aug->origin, root_ctx, path, true);
+    ERR_BAIL(aug);
+
+    result = tree_set(p, value) == NULL ? -1 : 0;
+ error:
+    free_pathx(p);
+    api_exit(aug);
+    return result;
+}
+
 int tree_insert(struct pathx *p, const char *label, int before) {
     struct tree *new = NULL, *match;
 
