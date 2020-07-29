@@ -1058,6 +1058,7 @@ int aug_seti(struct augeas *aug, const char *path, const char *value) {
 
     p = pathx_aug_parse(aug, aug->origin, root_ctx, path, true);
     ERR_BAIL(aug);
+    pathx_auto_name_predicates(p);
 
     result = tree_set(p, value) == NULL ? -1 : 0;
  error:
