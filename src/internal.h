@@ -647,6 +647,8 @@ void free_symtab(struct pathx_symtab *symtab);
  */
 int pathx_escape_name(const char *in, char **out);
 
+void pathx_auto_name_predicates(struct pathx *path);
+
 /* Debug helpers, all defined in internal.c. When ENABLE_DEBUG is not
  * set, they compile to nothing.
  */

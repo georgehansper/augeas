@@ -2889,6 +2889,24 @@ int pathx_expand_tree(struct pathx *path, struct tree **tree) {
     return -1;
 }
 
+void pathx_auto_name_predicates(struct pathx *path) {
+    struct step *step = NULL;
+    struct locpath *lp;
+
+    if ( path->state->exprs_used==1 ) {
+        if ( path->state->exprs[0]->tag == E_FILTER ) {
+            lp = path->state->exprs[0]->locpath;
+            step = lp->steps;
+            list_for_each(s, step) {
+                if (s->name == NULL && s->predicates != NULL ) {
+                    s->auto_name = true;
+                }
+            }
+        }
+    }
+    return;
+}
+
 /* Generate a numeric string to use for step->name
  * Scan tree->children for the highest numbered label, and add 1 to that
  */
