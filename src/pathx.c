@@ -140,6 +140,7 @@ struct step {
     enum axis    axis;
     char        *name;              /* NULL to match any name */
     struct pred *predicates;
+    bool         auto_name;
 };
 
 /* Initialise the root nodeset with the first step */
@@ -1897,6 +1898,7 @@ static struct step *parse_step(struct state *state) {
     }
 
     step->axis = CHILD;
+    step->auto_name = false;
     for (int i = 0; i < ARRAY_CARDINALITY(axis_names); i++) {
         if (looking_at(state, axis_names[i], "::")) {
             step->axis = i;
@@ -1914,6 +1916,8 @@ static struct step *parse_step(struct state *state) {
                 step->axis = STREQ(step->name, ".") ? SELF : PARENT;
                 FREE(step->name);
                 allow_predicates = 0;
+            } else if (STREQ(step->name, "#")) {
+                step->auto_name = true;
             }
         }
     }
@@ -2609,6 +2613,14 @@ int pathx_parse(const struct tree *tree,
 static bool step_matches(struct step *step, struct tree *tree) {
     if (step->name == NULL) {
         return step->axis == ROOT || tree->label != NULL;
+    } else if ( streqx(step->name, "#") ) {
+        if ( tree->label == NULL )
+					return false;
+        for( char *s = tree->label; *s ; s++) {
+					if ( ! isdigit(*s) )
+						return false;
+        }
+				return true;
     } else {
         return streqx(step->name, tree->label);
     }
@@ -2818,6 +2830,8 @@ static int locpath_search(struct locpath_trace *lpt,
     return result;
 }
 
+static char *step_auto_name(struct tree *tree);
+
 /* Expand the tree ROOT so that it contains all components of PATH. PATH
  * must have been initialized against ROOT by a call to PATH_FIND_ONE.
  *
@@ -2864,6 +2878,10 @@ int pathx_expand_tree(struct pathx *path, struct tree **tree) {
         parent = path->origin;
 
     list_for_each(s, step) {
+        if (s->auto_name) {
+            free(s->name);
+            s->name = step_auto_name(parent);
+        }
         if (s->name == NULL || s->axis != CHILD)
             goto error;
         struct tree *t = make_tree(strdup(s->name), NULL, parent, NULL);
@@ -2889,6 +2907,25 @@ int pathx_expand_tree(struct pathx *path, struct tree **tree) {
     *tree = NULL;
     store_error(path);
     return -1;
+}
+
+/* Generate a numeric string to use for step->name
+ * Scan tree->children for the highest numbered label, and add 1 to that
+ */
+static char *step_auto_name(struct tree *tree) {
+    int max_node_n=0;
+    char *step_name;
+    for(tree=tree->children; tree!=NULL; tree=tree->next) {
+        if ( tree->label == NULL)
+          continue;
+        int node_n=atoi(tree->label);
+        if( node_n > max_node_n )
+            max_node_n = node_n;
+    }
+    if (asprintf(&step_name,"%d",max_node_n+1) >= 0)
+        return step_name;
+    else
+        return NULL;
 }
 
 int pathx_find_one(struct pathx *path, struct tree **tree) {
