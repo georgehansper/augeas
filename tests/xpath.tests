@@ -345,3 +345,16 @@ test plusmatchpos /files/etc/hosts/#[2]
 
 test plusmatchregexp /files/etc/hosts/#[canonical =~ regexp('.*orange.*')]
      /files/etc/hosts/2
+
+test seqaxismatch /files/etc/hosts/seq::*
+     /files/etc/hosts/1
+     /files/etc/hosts/2
+
+test seqaxismatchpos /files/etc/hosts/seq::*[2]
+     /files/etc/hosts/2
+
+test seqaxismatchpos /files/etc/hosts/seq::2
+     /files/etc/hosts/2
+
+test seqaxismatchregexp /files/etc/hosts/seq::*[canonical =~ regexp('.*orange.*')]
+     /files/etc/hosts/2

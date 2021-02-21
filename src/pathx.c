@@ -99,6 +99,7 @@ struct pred {
 enum axis {
     SELF,
     CHILD,
+    SEQ,
     DESCENDANT,
     DESCENDANT_OR_SELF,
     PARENT,
@@ -112,6 +113,7 @@ enum axis {
 static const char *const axis_names[] = {
     "self",
     "child",
+    "seq",        /* Like child, but only selects node-names which are integers */
     "descendant",
     "descendant-or-self",
     "parent",
@@ -1903,6 +1905,8 @@ static struct step *parse_step(struct state *state) {
         if (looking_at(state, axis_names[i], "::")) {
             step->axis = i;
             explicit_axis = 1;
+            if ( step->axis == SEQ )
+                step->auto_name = true;
             break;
         }
     }
@@ -2611,9 +2615,12 @@ int pathx_parse(const struct tree *tree,
  *************************************************************************/
 
 static bool step_matches(struct step *step, struct tree *tree) {
-    if (step->name == NULL) {
-        return step->axis == ROOT || tree->label != NULL;
+    if (step->name != NULL && ! streqx(step->name, "#" ) ) {
+        return streqx(step->name, tree->label);
+    } else if ( step->axis == SEQ || streqx(step->name, "#" ) ) {
+/*
     } else if ( streqx(step->name, "#") ) {
+*/
         if ( tree->label == NULL )
 					return false;
         for( char *s = tree->label; *s ; s++) {
@@ -2621,6 +2628,8 @@ static bool step_matches(struct step *step, struct tree *tree) {
 						return false;
         }
 				return true;
+    } else if (step->name == NULL) {
+        return step->axis == ROOT || tree->label != NULL;
     } else {
         return streqx(step->name, tree->label);
     }
@@ -2644,6 +2653,7 @@ static struct tree *step_root(struct step *step, struct tree *ctx,
     switch (step->axis) {
     case SELF:
     case CHILD:
+    case SEQ:
     case DESCENDANT:
     case PARENT:
     case ANCESTOR:
@@ -2675,6 +2685,7 @@ static struct tree *step_first(struct step *step, struct tree *ctx) {
         node = ctx;
         break;
     case CHILD:
+    case SEQ:
     case DESCENDANT:
         node = ctx->children;
         break;
@@ -2710,6 +2721,7 @@ static struct tree *step_next(struct step *step, struct tree *ctx,
         case SELF:
             node = NULL;
             break;
+        case SEQ:
         case CHILD:
             node = node->next;
             break;
@@ -2878,11 +2890,11 @@ int pathx_expand_tree(struct pathx *path, struct tree **tree) {
         parent = path->origin;
 
     list_for_each(s, step) {
-        if (s->auto_name) {
+        if (s->axis==SEQ || s->auto_name) {
             free(s->name);
             s->name = step_auto_name(parent);
         }
-        if (s->name == NULL || s->axis != CHILD)
+        if (s->name == NULL || ! ( s->axis == CHILD || s->axis == SEQ ) )
             goto error;
         struct tree *t = make_tree(strdup(s->name), NULL, parent, NULL);
         if (first_child == NULL)
