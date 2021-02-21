@@ -142,7 +142,6 @@ struct step {
     enum axis    axis;
     char        *name;              /* NULL to match any name */
     struct pred *predicates;
-    bool         auto_name;
 };
 
 /* Initialise the root nodeset with the first step */
@@ -1900,13 +1899,10 @@ static struct step *parse_step(struct state *state) {
     }
 
     step->axis = CHILD;
-    step->auto_name = false;
     for (int i = 0; i < ARRAY_CARDINALITY(axis_names); i++) {
         if (looking_at(state, axis_names[i], "::")) {
             step->axis = i;
             explicit_axis = 1;
-            if ( step->axis == SEQ )
-                step->auto_name = true;
             break;
         }
     }
@@ -1920,8 +1916,6 @@ static struct step *parse_step(struct state *state) {
                 step->axis = STREQ(step->name, ".") ? SELF : PARENT;
                 FREE(step->name);
                 allow_predicates = 0;
-            } else if (STREQ(step->name, "#")) {
-                step->auto_name = true;
             }
         }
     }
@@ -2615,19 +2609,15 @@ int pathx_parse(const struct tree *tree,
  *************************************************************************/
 
 static bool step_matches(struct step *step, struct tree *tree) {
-    if (step->name != NULL && ! streqx(step->name, "#" ) ) {
-        return streqx(step->name, tree->label);
-    } else if ( step->axis == SEQ || streqx(step->name, "#" ) ) {
-/*
-    } else if ( streqx(step->name, "#") ) {
-*/
+    if ( step->axis == SEQ && step->name == NULL ) {
         if ( tree->label == NULL )
-					return false;
+            return false;
+        /* label matches if it consists of numeric digits only */
         for( char *s = tree->label; *s ; s++) {
-					if ( ! isdigit(*s) )
-						return false;
+            if ( ! isdigit(*s) )
+                return false;
         }
-				return true;
+        return true;
     } else if (step->name == NULL) {
         return step->axis == ROOT || tree->label != NULL;
     } else {
@@ -2842,7 +2832,7 @@ static int locpath_search(struct locpath_trace *lpt,
     return result;
 }
 
-static char *step_auto_name(struct tree *tree);
+static char *step_seq_choose_name(struct tree *tree);
 
 /* Expand the tree ROOT so that it contains all components of PATH. PATH
  * must have been initialized against ROOT by a call to PATH_FIND_ONE.
@@ -2890,11 +2880,12 @@ int pathx_expand_tree(struct pathx *path, struct tree **tree) {
         parent = path->origin;
 
     list_for_each(s, step) {
-        if (s->axis==SEQ || s->auto_name) {
-            free(s->name);
-            s->name = step_auto_name(parent);
+        if (s->axis != CHILD && s->axis != SEQ)
+            goto error;
+        if (s->axis==SEQ && s->name == NULL) {
+            s->name = step_seq_choose_name(parent);
         }
-        if (s->name == NULL || ! ( s->axis == CHILD || s->axis == SEQ ) )
+        if (s->name == NULL )
             goto error;
         struct tree *t = make_tree(strdup(s->name), NULL, parent, NULL);
         if (first_child == NULL)
@@ -2924,7 +2915,7 @@ int pathx_expand_tree(struct pathx *path, struct tree **tree) {
 /* Generate a numeric string to use for step->name
  * Scan tree->children for the highest numbered label, and add 1 to that
  */
-static char *step_auto_name(struct tree *tree) {
+static char *step_seq_choose_name(struct tree *tree) {
     int max_node_n=0;
     char *step_name;
     for(tree=tree->children; tree!=NULL; tree=tree->next) {
